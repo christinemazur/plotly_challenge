@@ -1,113 +1,99 @@
-function buildMetadata(sample) {
-  // Using `d3.json` to fetch the metadata for a sample
-  console.log(sample)
-  d3.json(`/metadata/${sample}`).then(function(sampleData) {
-    console.log(sampleData);
-    
-    // Using d3 to select the panel with id of `#sample-metadata`
-    var PANEL = d3.select("#sample-metadata");
-    
-    // Using `.html("") to clear any existing metadata
-    PANEL.html("");
-    
-    // Using `Object.entries` to add each key and value pair to the panel
-    // Using d3 to append new tags for each key-value in the metadata.
-    Object.entries(sampleData).forEach(([key, value]) => {
-      PANEL.append('h6').text(`${key}, ${value}`);
-    })
-    // BONUS: Build the Gauge Chart
-    // buildGauge(data.WFREQ); 
-    })
-  }
+let buildMetadata = sample => {
+  let url = "/metadata/" + sample;
+  d3.json(url).then(samples_metadata => {
+    smetadata = d3.select("#sample-metadata");
+    smetadata.html('');
+    Object.entries(samples_metadata).forEach(([key, value]) => {
+      smetadata.append('div').html(`${key}: ${value}<br>`);
+    });
 
-function buildCharts(sample) {
+    buildGauge(samples_metadata.WFREQ);
+  });
+}
 
-  function buildCharts(sample) {
-    
-    // @TODO: Use `d3.json` to fetch the sample data for the plots
-    
-    // @TODO: Build a Bubble Chart using the sample data
-    
-    // @TODO: Build a Pie Chart
-    // HINT: You will need to use slice() to grab the top 10 sample_values,
-    // otu_ids, and labels (10 each).
-    
-    // console.log(sample)  
-    d3.json(`/samples/${sample}`).then(function (sampleData) {
-      console.log(sampleData);
-      // console.log(sampleData.otu_ids);
-      // console.log(sampleData.otu_labels);
-      // console.log(sampleData.sample_values);
-
-      const otu_ids = sampleData.otu_ids;
-      const otu_labels = sampleData.otu_labels;
-      const sample_values = sampleData.sample_values;
-
-      //Building Bubble chart
-      var bubbleData = [{
-        x: otu_ids,
-        y: sample_values,
-        text: otu_labels,
-        mode: 'markers',
-        marker: {
-          size: sample_values,
-          color: otu_ids,
-          colorscale: 'Earth'
-        }
-      }];      
-
-      var bubbleLayout = {
-        margin: { t: 0 },
-        hovermode: 'closest',
-        xaxis: {title: 'OTU ID'},
+let buildCharts = sample => {
+  let url = "/samples/" + sample;
+  d3.json(url).then(response => {
+    let data = [];
+    response.otu_ids.forEach((value, index) => {
+      let datum = {
+        "x": response.otu_ids[index],
+        "y": response.sample_values[index],
+        "hovertext": response.otu_labels[index]
       };
 
-      Plotly.plot('bubble', bubbleData, bubbleLayout);
-
-      // Building Pie Chart
-      var pieData = [{
-        values: sample_values.slice(0,10),
-        labels: otu_ids.slice(0,10),
-        hovertext: otu_labels.slice(0,10,),
-        hoverinfo: 'hovertext',
-        type: 'pie'
-      }];
-
-      var pieLayout = {
-        margin: {t: 0, l: 0}
-      }
-
-      Plotly.plot('pie', pieData, pieLayout); 
-
+      data.push(datum);
     });
-  }
-  
-function init() {
-  // Get reference to the dropdown select element
-  var selector = d3.select("#selDataset");
+    // console.log(data);
 
-  // Use the list of sample names to fill the select options
+    let bubletrace = {
+      x: data.map(row => row.x),
+      y: data.map(row => row.y),
+      hovertemplate: data.map(row => {
+        return `(${row.x},${row.y})<br>${row.hovertext}`;
+      }),
+      mode: 'markers',
+      marker: {
+        color: data.map(row => row.x),
+        size: data.map(row => row.y),
+      }
+    };
+
+    let bubblelayout = {
+      // title: 'Marker Size and Color',
+      xaxis: { title: "OTU ID" },
+      showlegend: false,
+      height: 500,
+      width: 1000
+    };
+
+    Plotly.newPlot('bubble', [bubletrace], bubblelayout);
+
+    data.sort((a, b) => {
+      return parseFloat(b.y) - parseFloat(a.y);
+    });
+
+    // Slice the first 10 objects for plotting
+    let selected = data.slice(0, 10);
+    // selected = selected.reverse();
+    // console.log(selected);
+
+    let trace = {
+      labels: selected.map(row => row.x),
+      values: selected.map(row => row.y),
+      // hovertemplate: data.map(row => row.hovertext),
+      hovertext: selected.map(row => row.hovertext),
+      type: 'pie'
+    };
+
+    let layout = {
+      width: 500,
+      height: 400
+      // title: "Pie Chart",
+    };
+
+    Plotly.newPlot("pie", [trace], layout);
+  });
+}
+
+let init = () => {
+  let selector = d3.select("#selDataset");
+
   d3.json("/names").then((sampleNames) => {
-    sampleNames.forEach((sample) => {
+    sampleNames.forEach(sample => {
       selector
         .append("option")
-        .text(sample)
-        .property("value", sample);
+        .property("value", sample)
+        .text(sample);
     });
-
-    // Use the first sample from the list to build the initial plots
     const firstSample = sampleNames[0];
     buildCharts(firstSample);
     buildMetadata(firstSample);
   });
 }
 
-function optionChanged(newSample) {
-  // Fetch new data each time a new sample is selected
+let optionChanged = newSample => {
   buildCharts(newSample);
   buildMetadata(newSample);
 }
-}
-
-// Initialize the dashboard
 init();
