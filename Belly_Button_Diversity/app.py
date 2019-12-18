@@ -20,7 +20,7 @@ app = Flask(__name__)
 
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///db/bellybutton.sqlite"
 db = SQLAlchemy(app)
-
+engine = db.engine
 # reflect an existing database into a new model
 Base = automap_base()
 # reflect the tables
@@ -30,6 +30,8 @@ Base.prepare(db.engine, reflect=True)
 Samples_Metadata = Base.classes.sample_metadata
 Samples = Base.classes.samples
 
+# Create our session (link) from Python to the DB
+session = Session(engine)
 
 @app.route("/")
 def index():
@@ -48,7 +50,7 @@ def names():
     # Return a list of the column names (sample names)
     return jsonify(list(df.columns)[2:])
 
-
+# Returns a json dictionary of sample metadata 
 @app.route("/metadata/<sample>")
 def sample_metadata(sample):
     """Return the MetaData for a given sample."""
